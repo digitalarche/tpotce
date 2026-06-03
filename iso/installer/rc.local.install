@@ -1,3 +1,0 @@
-#!/bin/bash
-#plymouth --quit
-openvt -f -w -s /root/installer/wrapper.sh

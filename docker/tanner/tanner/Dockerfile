@@ -1,29 +1,42 @@
-FROM alpine:3.13
+FROM alpine:3.17
 #
 # Include dist
-ADD dist/ /root/dist/
+COPY dist/ /root/dist/
 #
-# Setup apt
-RUN apk -U --no-cache add \
-               build-base \
-               git \
-               libcap \
-               libffi-dev \
-               libressl-dev \
-               linux-headers \
-	       py3-pip \
-               py3-yarl \
-               python3 \
-               python3-dev && \ 
+# Install packages
+RUN apk --no-cache -U upgrade && \
+    apk --no-cache -U add \
+		build-base \
+		git \
+		libcap \
+		libffi-dev \
+		openssl-dev \
+		linux-headers \
+		py3-aiohttp \
+		py3-geoip2 \
+		py3-jinja2 \
+		py3-jwt \
+		py3-mako \
+		py3-mysqlclient \
+		py3-packaging \
+		py3-pip \
+		py3-redis \
+		py3-pycodestyle \
+		py3-setuptools \
+		py3-tornado \
+		py3-websocket-client \
+		py3-wheel \
+		py3-yaml \
+		py3-yarl \
+		python3 \
+		python3-dev && \ 
 #
 # Setup Tanner
-    git clone https://github.com/mushorg/tanner /opt/tanner && \
+	git clone https://github.com/mushorg/tanner /opt/tanner && \
     cd /opt/tanner/ && \
-#    git fetch origin pull/364/head:test && \	
-#    git checkout test && \
-    git checkout 1fd5465ef5658c2211e16e092c36b3bb05600730 && \
+    git checkout 245d628f4023e5462c7035e760a6b5eed0a33fbe && \
     cp /root/dist/config.yaml /opt/tanner/tanner/data && \
-    pip3 install --no-cache-dir setuptools && \
+    cp /root/dist/requirements.txt . && \
     pip3 install --no-cache-dir -r requirements.txt && \
     python3 setup.py install && \
     rm -rf .coveragerc \
@@ -51,12 +64,14 @@ RUN apk -U --no-cache add \
             git \
             libcap \
             libffi-dev \
-            libressl-dev \
+            openssl-dev \
             linux-headers \
             python3-dev && \
-    rm -rf /root/* && \
-    rm -rf /tmp/* /var/tmp/* && \
-    rm -rf /var/cache/apk/*
+    rm -rf /root/* \
+           /tmp/* \
+           /var/tmp/* \
+           /var/cache/apk/* \
+           /opt/tanner/.git
 #
 # Start tanner
 STOPSIGNAL SIGKILL

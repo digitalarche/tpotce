@@ -1,5 +1,3 @@
-version: '2.3'
-
 networks:
   tanner_local:
 
@@ -12,9 +10,11 @@ services:
     restart: always
     stop_signal: SIGKILL
     tty: true
+#    cpu_count: 1
+#    cpus: 0.25
     networks:
      - tanner_local
-    image: "ghcr.io/telekom-security/redis:2006"
+    image: "dtagdevsec/redis:24.04"
     read_only: true
 
 # PHP Sandbox service
@@ -26,9 +26,11 @@ services:
     tmpfs:
      - /tmp:uid=2000,gid=2000
     tty: true
+#    cpu_count: 1
+#    cpus: 0.25
     networks:
      - tanner_local
-    image: "ghcr.io/telekom-security/phpox:2006"
+    image: "dtagdevsec/phpox:24.04"
     read_only: true
 
 # Tanner API Service
@@ -40,36 +42,38 @@ services:
     tmpfs:
      - /tmp/tanner:uid=2000,gid=2000
     tty: true
+#    cpu_count: 1
+#    cpus: 0.25
     networks:
      - tanner_local
-    image: "ghcr.io/telekom-security/tanner:2006"
+    image: "dtagdevsec/tanner:24.04"
     read_only: true
     volumes:
-     - /data/tanner/log:/var/log/tanner
+     - $HOME/tpotce/data/tanner/log:/var/log/tanner
     command: tannerapi 
     depends_on:
      - tanner_redis
 
 # Tanner WEB Service
-  tanner_web:
-    build: ./tanner
-    container_name: tanner_web
-    restart: always
-    stop_signal: SIGKILL
-    tmpfs:
-     - /tmp/tanner:uid=2000,gid=2000
-    tty: true
-    networks:
-     - tanner_local
+#  tanner_web:
+#    build: ./tanner
+#    container_name: tanner_web
+#    restart: always
+#    stop_signal: SIGKILL
+#    tmpfs:
+#     - /tmp/tanner:uid=2000,gid=2000
+#    tty: true
+#    networks:
+#     - tanner_local
 #    ports:
 #     - "127.0.0.1:8091:8091"
-    image: "ghcr.io/telekom-security/tanner:2006"
-    command: tannerweb
-    read_only: true
-    volumes:
-     - /data/tanner/log:/var/log/tanner
-    depends_on:
-     - tanner_redis
+#    image: "dtagdevsec/tanner:24.04"
+#    command: tannerweb
+#    read_only: true
+#    volumes:
+#     - /data/tanner/log:/var/log/tanner
+#    depends_on:
+#     - tanner_redis
 
 # Tanner Service
   tanner:
@@ -80,17 +84,19 @@ services:
     tmpfs:
      - /tmp/tanner:uid=2000,gid=2000
     tty: true
+#    cpu_count: 1
+#    cpus: 0.25
     networks:
      - tanner_local
-    image: "ghcr.io/telekom-security/tanner:2006"
+    image: "dtagdevsec/tanner:24.04"
     command: tanner
     read_only: true
     volumes:
-     - /data/tanner/log:/var/log/tanner
-     - /data/tanner/files:/opt/tanner/files
+     - $HOME/tpotce/data/tanner/log:/var/log/tanner
+     - $HOME/tpotce/data/tanner/files:/opt/tanner/files
     depends_on:
      - tanner_api
-     - tanner_web
+#     - tanner_web
      - tanner_phpox
 
 # Snare Service
@@ -100,10 +106,12 @@ services:
     restart: always
     stop_signal: SIGKILL
     tty: true
+#    cpu_count: 1
+#    cpus: 0.25
     networks:
      - tanner_local
     ports:
      - "80:80"
-    image: "ghcr.io/telekom-security/snare:2006"
+    image: "dtagdevsec/snare:24.04"
     depends_on:
      - tanner

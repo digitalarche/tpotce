@@ -1,5 +1,3 @@
-version: '2.3'
-  
 networks:
   heralding_local:
 
@@ -12,6 +10,8 @@ services:
     restart: always
     tmpfs:
      - /tmp/heralding:uid=2000,gid=2000
+#    cpu_count: 1
+#    cpus: 0.25
     networks:
      - heralding_local
     ports:
@@ -31,7 +31,7 @@ services:
      - "3389:3389"
      - "5432:5432"
      - "5900:5900"
-    image: "ghcr.io/telekom-security/heralding:2006"
+    image: "dtagdevsec/heralding:24.04"
     read_only: true
     volumes:
-     - /data/heralding/log:/var/log/heralding
+     - $HOME/tpotce/data/heralding/log:/var/log/heralding

@@ -1,55 +1,42 @@
-FROM alpine:3.13
+FROM golang:1.23-alpine AS builder
 #
 # Include dist
-ADD dist/ /root/dist/
+COPY dist/ /root/dist/
 # 
 # Setup apk
-RUN apk -U --no-cache add \
-                   build-base \
-                   git \
-                   go \
-                   g++ \
-                   iptables-dev \
-                   libnetfilter_queue-dev \
-                   libcap \
-                   libpcap-dev && \
+RUN apk --no-cache -U upgrade && \
+	apk -U --no-cache add \
+		make \
+  		git \
+		g++ \
+		iptables-dev \
+		libpcap-dev && \
 #
 # Setup go, glutton
-    export GOPATH=/opt/go/ && \
-    export GO111MODULE=on && \
-    mkdir -p /opt/go && \
-    cd /opt/go/ && \
+    mkdir -p /opt/ && \
+    cd /opt/ && \
     git clone https://github.com/mushorg/glutton && \
-    cd /opt/go/glutton/ && \
-    git checkout c25045b95b43ed9bfee89b2d14a50f5794a9cf2b && \
-    mv /root/dist/system.go /opt/go/glutton/ && \
-    go mod download && \
+    cd /opt/glutton/ && \
+    git checkout 1e534801825dfa517a97a4e1899bf85e9384e463 && \
     make build && \
-    cd / && \
-    mkdir -p /opt/glutton && \
-    mv /opt/go/glutton/bin /opt/glutton/ && \
-    mv /opt/go/glutton/config /opt/glutton/ && \
-    mv /opt/go/glutton/rules /opt/glutton/ && \
-    ln -s /sbin/xtables-legacy-multi /sbin/xtables-multi && \
-    setcap cap_net_admin,cap_net_raw=+ep /opt/glutton/bin/server && \
-    setcap cap_net_admin,cap_net_raw=+ep /sbin/xtables-legacy-multi && \
+	cp /root/dist/*.yaml /opt/glutton/config/
 #
-# Setup user, groups and configs
-    addgroup -g 2000 glutton && \
-    adduser -S -s /bin/ash -u 2000 -D -g 2000 glutton && \
-    mkdir -p /var/log/glutton && \
-    mv /root/dist/rules.yaml /opt/glutton/rules/ && \
+FROM alpine:3.22
 #
-# Clean up
-    apk del --purge build-base \
-                    git \
-                    go \
-                    g++ && \
-    rm -rf /var/cache/apk/* \
-           /opt/go \
-           /root/dist
+COPY --from=builder /opt/glutton/bin /opt/glutton/bin
+COPY --from=builder /opt/glutton/config /opt/glutton/config
+#
+RUN apk -U --no-cache upgrade && \
+	apk -U --no-cache add \
+		iptables \
+		libcap \
+  		libpcap-dev && \
+		setcap cap_net_admin,cap_net_raw=+ep /opt/glutton/bin/server && \
+		setcap cap_net_admin,cap_net_raw=+ep /usr/sbin/xtables-nft-multi && \
+		mkdir -p /var/log/glutton \
+		         /opt/glutton/payloads
 #
 # Start glutton 
 WORKDIR /opt/glutton
-USER glutton:glutton
-CMD exec bin/server -i $(/sbin/ip address show | /usr/bin/awk '/inet.*brd/{ print $NF; exit }') -l /var/log/glutton/glutton.log > /dev/null 2>&1
+USER 2000:2000
+CMD exec bin/server -d true -i $(ip route | grep "^default" | awk '{ print $5 }') -l /var/log/glutton/glutton.log > /dev/null 2>&1

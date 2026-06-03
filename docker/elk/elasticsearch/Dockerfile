@@ -1,46 +1,53 @@
-FROM alpine:3.13
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND noninteractive
+ENV ES_VER=9.2.3
 #
-# VARS
-ENV ES_VER=7.11.1 \
-    JAVA_HOME=/usr/lib/jvm/java-11-openjdk
 # Include dist
-ADD dist/ /root/dist/
+COPY dist/ /root/dist/
 #
-# Setup env and apt
-#RUN sed -i 's/dl-cdn/dl-2/g' /etc/apk/repositories && \
-RUN apk -U --no-cache add \
-             aria2 \
-             bash \
-             curl \
-             nss \
-             openjdk11-jre && \
+# Install packages
+RUN	apt-get update -y && \
+    apt-get upgrade -y && \
+    apt-get install -y \
+			adduser \
+            aria2 \
+            curl && \
 #
-# Get and install packages
+# Determine arch, get and install packages
+    ARCH=$(arch) && \
+      if [ "$ARCH" = "x86_64" ]; then ES_ARCH="amd64"; export _JAVA_OPTIONS=""; fi && \
+      if [ "$ARCH" = "aarch64" ]; then ES_ARCH="arm64"; export _JAVA_OPTIONS="-XX:UseSVE=0"; fi && \
+    echo "$ARCH" && \
     cd /root/dist/ && \
-    mkdir -p /usr/share/elasticsearch/ && \
-    aria2c -s 16 -x 16 https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ES_VER-linux-x86_64.tar.gz && \
-    tar xvfz elasticsearch-$ES_VER-linux-x86_64.tar.gz --strip-components=1 -C /usr/share/elasticsearch/ && \
-#
-# Add and move files
-    cd /root/dist/ && \
-    mkdir -p /usr/share/elasticsearch/config && \
-    cp elasticsearch.yml /usr/share/elasticsearch/config/ && \
+    mkdir -p /usr/share/elasticsearch/config \
+             /etc/elasticsearch && \
+    cp elasticsearch.yml /etc/elasticsearch/ && \
+    aria2c -s 16 -x 16 https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ES_VER-$ES_ARCH.deb && \
+    dpkg --force-confold -i elasticsearch-$ES_VER-$ES_ARCH.deb && \
 #
 # Setup user, groups and configs
-    addgroup -g 2000 elasticsearch && \
-    adduser -S -H -s /bin/ash -u 2000 -D -g 2000 elasticsearch && \
-    chown -R elasticsearch:elasticsearch /usr/share/elasticsearch/ && \
-    rm -rf /usr/share/elasticsearch/modules/x-pack-ml && \
+    groupmod -g 2000 elasticsearch && \
+    usermod -u 2000 elasticsearch && \
+    chown -R root:elasticsearch /etc/default/elasticsearch \
+                                /etc/elasticsearch && \
+    chown -R elasticsearch:elasticsearch /var/lib/elasticsearch \
+                                         /var/log/elasticsearch && \
 #
 # Clean up
-    apk del --purge aria2 && \
-    rm -rf /root/* && \
-    rm -rf /tmp/* && \
-    rm -rf /var/cache/apk/*
+    apt-get purge aria2 -y && \
+    apt-get autoremove -y --purge && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* \
+        /tmp/* /var/tmp/* \
+        /root/.cache \
+        /root/*
 #
 # Healthcheck
 HEALTHCHECK --retries=10 CMD curl -s -XGET 'http://127.0.0.1:9200/_cat/health'
 #
 # Start ELK
 USER elasticsearch:elasticsearch
-CMD ["/usr/share/elasticsearch/bin/elasticsearch"]
+#CMD ["/usr/share/elasticsearch/bin/elasticsearch"]
+CMD ARCH=$(arch) && \
+    if [ "$ARCH" = "aarch64" ]; then export _JAVA_OPTIONS="-XX:UseSVE=0"; fi && \
+    exec /usr/share/elasticsearch/bin/elasticsearch
